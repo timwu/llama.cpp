@@ -2055,9 +2055,9 @@ struct server_context {
             }
         }
 
-        // find the slot that has been least recently used
+        // choose the slot with the least amount of tokens cached
         if (ret == nullptr) {
-            int64_t t_last = ggml_time_us();
+            size_t smallest_cache_size = std::numeric_limits<size_t>::max();
             for (server_slot & slot : slots) {
                 // skip the slot if it is not available
                 if (slot.is_processing()) {
@@ -2065,14 +2065,14 @@ struct server_context {
                 }
 
                 // select the current slot if the criteria match
-                if (slot.t_last_used < t_last) {
-                    t_last = slot.t_last_used;
+                if (slot.cache_tokens.size() < smallest_cache_size) {
+                    smallest_cache_size = slot.cache_tokens.size();
                     ret = &slot;
                 }
             }
 
             if (ret != nullptr) {
-                SLT_DBG(*ret, "selected slot by lru, t_last = %" PRId64 "\n", t_last);
+                SLT_DBG(*ret, "selected slot by cache amount, cache_size = %" PRId64 "\n", smallest_cache_size);
             }
         }
 
