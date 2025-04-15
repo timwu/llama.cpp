@@ -229,51 +229,48 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                 params.logit_bias.data()));
 
     if (params.mirostat == 0) {
-        if (params.top_n_sigma >= 0) {
-            llama_sampler_chain_add(result->chain, llama_sampler_init_top_k        (params.top_k));
-            llama_sampler_chain_add(result->chain, llama_sampler_init_temp         (params.temp));
-            llama_sampler_chain_add(result->chain, llama_sampler_init_top_n_sigma  (params.top_n_sigma));
-        } else {
-            for (const auto & cnstr : params.samplers) {
-                switch (cnstr) {
-                    case COMMON_SAMPLER_TYPE_DRY:
-                        {
-                            std::vector<const char *> c_breakers;
-                            c_breakers.reserve(params.dry_sequence_breakers.size());
-                            for (const auto & str : params.dry_sequence_breakers) {
-                                c_breakers.push_back(str.c_str());
-                            }
-
-                            llama_sampler_chain_add(result->chain, llama_sampler_init_dry      (vocab, llama_model_n_ctx_train(model), params.dry_multiplier, params.dry_base, params.dry_allowed_length, params.dry_penalty_last_n, c_breakers.data(), c_breakers.size()));
+        for (const auto & cnstr : params.samplers) {
+            switch (cnstr) {
+                case COMMON_SAMPLER_TYPE_DRY:
+                    {
+                        std::vector<const char *> c_breakers;
+                        c_breakers.reserve(params.dry_sequence_breakers.size());
+                        for (const auto & str : params.dry_sequence_breakers) {
+                            c_breakers.push_back(str.c_str());
                         }
-                        break;
-                    case COMMON_SAMPLER_TYPE_TOP_K:
-                        llama_sampler_chain_add(result->chain, llama_sampler_init_top_k    (params.top_k));
-                        break;
-                    case COMMON_SAMPLER_TYPE_TOP_P:
-                        llama_sampler_chain_add(result->chain, llama_sampler_init_top_p    (params.top_p, params.min_keep));
-                        break;
-                    case COMMON_SAMPLER_TYPE_MIN_P:
-                        llama_sampler_chain_add(result->chain, llama_sampler_init_min_p    (params.min_p, params.min_keep));
-                        break;
-                    case COMMON_SAMPLER_TYPE_XTC:
-                        llama_sampler_chain_add(result->chain, llama_sampler_init_xtc      (params.xtc_probability, params.xtc_threshold, params.min_keep, params.seed));
-                        break;
-                    case COMMON_SAMPLER_TYPE_TYPICAL_P:
-                        llama_sampler_chain_add(result->chain, llama_sampler_init_typical  (params.typ_p, params.min_keep));
-                        break;
-                    case COMMON_SAMPLER_TYPE_TEMPERATURE:
-                        llama_sampler_chain_add(result->chain, llama_sampler_init_temp_ext (params.temp, params.dynatemp_range, params.dynatemp_exponent));
-                        break;
-                    case COMMON_SAMPLER_TYPE_INFILL:
-                        llama_sampler_chain_add(result->chain, llama_sampler_init_infill   (vocab));
-                        break;
-                    case COMMON_SAMPLER_TYPE_PENALTIES:
-                        llama_sampler_chain_add(result->chain, llama_sampler_init_penalties(params.penalty_last_n, params.penalty_repeat, params.penalty_freq, params.penalty_present));
-                        break;
-                    default:
-                        GGML_ASSERT(false && "unknown sampler type");
-                }
+
+                        llama_sampler_chain_add(result->chain, llama_sampler_init_dry      (vocab, llama_model_n_ctx_train(model), params.dry_multiplier, params.dry_base, params.dry_allowed_length, params.dry_penalty_last_n, c_breakers.data(), c_breakers.size()));
+                    }
+                    break;
+                case COMMON_SAMPLER_TYPE_TOP_K:
+                    llama_sampler_chain_add(result->chain, llama_sampler_init_top_k    (params.top_k));
+                    break;
+                case COMMON_SAMPLER_TYPE_TOP_P:
+                    llama_sampler_chain_add(result->chain, llama_sampler_init_top_p    (params.top_p, params.min_keep));
+                    break;
+                case COMMON_SAMPLER_TYPE_MIN_P:
+                    llama_sampler_chain_add(result->chain, llama_sampler_init_min_p    (params.min_p, params.min_keep));
+                    break;
+                case COMMON_SAMPLER_TYPE_XTC:
+                    llama_sampler_chain_add(result->chain, llama_sampler_init_xtc      (params.xtc_probability, params.xtc_threshold, params.min_keep, params.seed));
+                    break;
+                case COMMON_SAMPLER_TYPE_TYPICAL_P:
+                    llama_sampler_chain_add(result->chain, llama_sampler_init_typical  (params.typ_p, params.min_keep));
+                    break;
+                case COMMON_SAMPLER_TYPE_TEMPERATURE:
+                    llama_sampler_chain_add(result->chain, llama_sampler_init_temp_ext (params.temp, params.dynatemp_range, params.dynatemp_exponent));
+                    break;
+                case COMMON_SAMPLER_TYPE_INFILL:
+                    llama_sampler_chain_add(result->chain, llama_sampler_init_infill   (vocab));
+                    break;
+                case COMMON_SAMPLER_TYPE_PENALTIES:
+                    llama_sampler_chain_add(result->chain, llama_sampler_init_penalties(params.penalty_last_n, params.penalty_repeat, params.penalty_freq, params.penalty_present));
+                    break;
+                case COMMON_SAMPLER_TYPE_TOP_NSIGMA:
+                    llama_sampler_chain_add(result->chain, llama_sampler_init_top_n_sigma(params.top_n_sigma));
+                    break;
+                default:
+                    GGML_ASSERT(false && "unknown sampler type");
             }
         }
         llama_sampler_chain_add(result->chain, llama_sampler_init_dist(params.seed));
@@ -480,6 +477,7 @@ char common_sampler_type_to_chr(enum common_sampler_type cnstr) {
         case COMMON_SAMPLER_TYPE_XTC:         return 'x';
         case COMMON_SAMPLER_TYPE_INFILL:      return 'i';
         case COMMON_SAMPLER_TYPE_PENALTIES:   return 'e';
+        case COMMON_SAMPLER_TYPE_TOP_NSIGMA:  return 's';
         default : return '?';
     }
 }
@@ -495,6 +493,7 @@ std::string common_sampler_type_to_str(enum common_sampler_type cnstr) {
         case COMMON_SAMPLER_TYPE_XTC:         return "xtc";
         case COMMON_SAMPLER_TYPE_INFILL:      return "infill";
         case COMMON_SAMPLER_TYPE_PENALTIES:   return "penalties";
+        case COMMON_SAMPLER_TYPE_TOP_NSIGMA:  return "top_n_sigma";
         default : return "";
     }
 }
@@ -510,6 +509,7 @@ std::vector<common_sampler_type> common_sampler_types_from_names(const std::vect
         { "xtc",         COMMON_SAMPLER_TYPE_XTC },
         { "infill",      COMMON_SAMPLER_TYPE_INFILL },
         { "penalties",   COMMON_SAMPLER_TYPE_PENALTIES },
+        { "top_n_sigma", COMMON_SAMPLER_TYPE_TOP_NSIGMA},
     };
 
     // since samplers names are written multiple ways
@@ -524,6 +524,7 @@ std::vector<common_sampler_type> common_sampler_types_from_names(const std::vect
         { "typ",         COMMON_SAMPLER_TYPE_TYPICAL_P },
         { "min-p",       COMMON_SAMPLER_TYPE_MIN_P },
         { "temp",        COMMON_SAMPLER_TYPE_TEMPERATURE },
+        { "top-n-sigma", COMMON_SAMPLER_TYPE_TOP_NSIGMA},
     };
 
     std::vector<common_sampler_type> samplers;
@@ -557,6 +558,7 @@ std::vector<common_sampler_type> common_sampler_types_from_chars(const std::stri
         { common_sampler_type_to_chr(COMMON_SAMPLER_TYPE_XTC),         COMMON_SAMPLER_TYPE_XTC },
         { common_sampler_type_to_chr(COMMON_SAMPLER_TYPE_INFILL),      COMMON_SAMPLER_TYPE_INFILL },
         { common_sampler_type_to_chr(COMMON_SAMPLER_TYPE_PENALTIES),   COMMON_SAMPLER_TYPE_PENALTIES },
+        { common_sampler_type_to_chr(COMMON_SAMPLER_TYPE_TOP_NSIGMA),  COMMON_SAMPLER_TYPE_TOP_NSIGMA},
     };
 
     std::vector<common_sampler_type> samplers;
